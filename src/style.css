@@ -1,0 +1,39 @@
+body {
+  font-family: system-ui, sans-serif;
+  margin: 2rem;
+  background: #f8f9fa;
+}
+
+h1 {
+  color: #2d3748;
+}
+
+form {
+  display: grid;
+  gap: 0.5rem;
+  max-width: 700px;
+}
+
+button {
+  width: fit-content;
+}
+
+#legendLabel.is-disabled {
+  color: #7a828e;
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+#logOutput {
+  width: 100%;
+  max-width: 900px;
+  min-height: 260px;
+  margin-top: 2rem;
+  background: #fff;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  padding: 1rem;
+  border: 1px solid #d8dee6;
+  resize: vertical;
+  overflow: auto;
+}

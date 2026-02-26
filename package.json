@@ -1,0 +1,36 @@
+{
+  "name": "timesheet_transformer",
+  "scripts": {
+    "dev": "vite --port 4567 --host",
+    "build": "vite build",
+    "preview": "vite preview --host --port 4567",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "check": "npm run format:check && npm run lint && npm run typecheck && npm run test && npm run build",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
+  },
+  "dependencies": {
+    "dayjs": "^1.11.19",
+    "papaparse": "^5.5.3",
+    "pizzip": "^3.2.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@types/papaparse": "^5.3.16",
+    "@types/node": "^25.3.1",
+    "eslint": "^10.0.2",
+    "globals": "^17.3.0",
+    "jsdom": "^26.1.0",
+    "prettier": "^3.8.1",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.56.1",
+    "vite": "^7.3.1",
+    "vitest": "^4.0.18"
+  },
+  "private": true,
+  "engines": {
+    "node": ">=20"
+  }
+}
