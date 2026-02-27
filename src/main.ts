@@ -1,5 +1,6 @@
 import { aggregateWeeklyRows } from "./transformer/aggregation";
 import { createDocx } from "./transformer/docx";
+import { createXlsx } from "./transformer/excel";
 import {
   readWorkAreaMapFromCsv,
   readWorklogRowsFromCsv,
@@ -8,8 +9,11 @@ import type { WorklogRow } from "./transformer/types";
 import "./style.css";
 
 const RESULT_DOCX_FILE_NAME = "result.docx";
+const RESULT_XLSX_FILE_NAME = "result.xlsx";
 const DOCX_MIME_TYPE =
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+const XLSX_MIME_TYPE =
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
 
 const app = document.getElementById("app");
 if (app) {
@@ -28,18 +32,20 @@ if (app) {
           <input type="checkbox" id="weeklyInput" />
           Weekly Aggregation
         </label>
+        <label id="legendLabel" class="checkbox-label">
+          <input type="checkbox" id="legendInput" />
+          Include legend
+        </label>
+        <button type="button" id="generateExcelButton">Generate Excel</button>
+        <button type="button" id="downloadExcelButton" disabled hidden>Download Excel</button>
       </fieldset>
       <fieldset class="form-section">
         <legend>2. Timesheet</legend>
         <label class="file-label">Template (docx):
           <input type="file" id="templateInput" accept=".docx" required />
         </label>
-        <label id="legendLabel" class="checkbox-label">
-          <input type="checkbox" id="legendInput" />
-          Include legend
-        </label>
-        <button type="submit" id="generateButton">Generate</button>
-        <button type="button" id="downloadButton" disabled hidden>Download</button>
+        <button type="submit" id="generateButton">Generate DOCX</button>
+        <button type="button" id="downloadButton" disabled hidden>Download DOCX</button>
       </fieldset>
     </form>
     <textarea id="logOutput" readonly></textarea>
@@ -70,8 +76,14 @@ const legendLabel = document.getElementById(
 const generateButton = document.getElementById(
   "generateButton",
 ) as HTMLButtonElement | null;
+const generateExcelButton = document.getElementById(
+  "generateExcelButton",
+) as HTMLButtonElement | null;
 const downloadButton = document.getElementById(
   "downloadButton",
+) as HTMLButtonElement | null;
+const downloadExcelButton = document.getElementById(
+  "downloadExcelButton",
 ) as HTMLButtonElement | null;
 const logOutput = document.getElementById(
   "logOutput",
@@ -81,7 +93,11 @@ type WorkAreasByKey = Map<string, { name: string; alias: string }>;
 
 let downloadUrl: string | null = null;
 let downloadFileName = RESULT_DOCX_FILE_NAME;
+let downloadExcelUrl: string | null = null;
+let downloadExcelFileName = RESULT_XLSX_FILE_NAME;
 let runVersion = 0;
+let isGeneratingDocx = false;
+let isGeneratingExcel = false;
 
 if (
   uploadForm &&
@@ -92,14 +108,24 @@ if (
   legendInput &&
   legendLabel &&
   generateButton &&
+  generateExcelButton &&
   downloadButton &&
+  downloadExcelButton &&
   logOutput
 ) {
-  const setResultAvailableState = (hasResult: boolean): void => {
+  const setDocxResultAvailableState = (hasResult: boolean): void => {
     generateButton.hidden = hasResult;
     downloadButton.hidden = !hasResult;
     if (!hasResult) {
       downloadButton.disabled = true;
+    }
+  };
+
+  const setExcelResultAvailableState = (hasResult: boolean): void => {
+    generateExcelButton.hidden = hasResult;
+    downloadExcelButton.hidden = !hasResult;
+    if (!hasResult) {
+      downloadExcelButton.disabled = true;
     }
   };
 
@@ -117,6 +143,17 @@ if (
       lastDotIndex > 0 ? trimmedName.slice(0, lastDotIndex) : trimmedName;
     const safeBaseName = baseName.trim() || "result";
     return `${safeBaseName}.docx`;
+  };
+
+  const getExcelFileNameFromWorklog = (worklogName: string): string => {
+    const trimmedName = String(worklogName ?? "").trim();
+    if (!trimmedName) return RESULT_XLSX_FILE_NAME;
+
+    const lastDotIndex = trimmedName.lastIndexOf(".");
+    const baseName =
+      lastDotIndex > 0 ? trimmedName.slice(0, lastDotIndex) : trimmedName;
+    const safeBaseName = baseName.trim() || "result";
+    return `${safeBaseName}.xlsx`;
   };
 
   const warnOnMissingWorkAreaMappings = (
@@ -158,8 +195,14 @@ if (
       URL.revokeObjectURL(downloadUrl);
       downloadUrl = null;
     }
+    if (downloadExcelUrl) {
+      URL.revokeObjectURL(downloadExcelUrl);
+      downloadExcelUrl = null;
+    }
     downloadFileName = RESULT_DOCX_FILE_NAME;
-    setResultAvailableState(false);
+    downloadExcelFileName = RESULT_XLSX_FILE_NAME;
+    setDocxResultAvailableState(false);
+    setExcelResultAvailableState(false);
     if (clearLog) {
       logOutput.value = "";
     }
@@ -178,7 +221,8 @@ if (
       legendInput.checked = false;
     }
 
-    generateButton.disabled = !(hasWorklog && hasTemplate);
+    generateButton.disabled = isGeneratingDocx || !(hasWorklog && hasTemplate);
+    generateExcelButton.disabled = isGeneratingExcel || !hasWorklog;
   };
 
   const registerChangeHandler = (element: HTMLElement): void => {
@@ -194,7 +238,8 @@ if (
   registerChangeHandler(weeklyInput);
   registerChangeHandler(legendInput);
   syncUI();
-  setResultAvailableState(false);
+  setDocxResultAvailableState(false);
+  setExcelResultAvailableState(false);
 
   downloadButton.addEventListener("click", () => {
     if (!downloadUrl) return;
@@ -202,6 +247,100 @@ if (
     anchor.href = downloadUrl;
     anchor.download = downloadFileName;
     anchor.click();
+  });
+
+  downloadExcelButton.addEventListener("click", () => {
+    if (!downloadExcelUrl) return;
+    const anchor = document.createElement("a");
+    anchor.href = downloadExcelUrl;
+    anchor.download = downloadExcelFileName;
+    anchor.click();
+  });
+
+  const loadWorklogData = async () => {
+    const worklogFile = worklogInput.files?.[0] ?? null;
+    if (!worklogFile) {
+      appendLog("Please choose a worklog CSV file.");
+      return null;
+    }
+
+    appendLog("Reading files...");
+    const worklogCsv = await worklogFile.text();
+
+    const dailyRows = readWorklogRowsFromCsv(worklogCsv, appendLog);
+    const weekly = weeklyInput.checked;
+    const worklogRows = weekly ? aggregateWeeklyRows(dailyRows) : dailyRows;
+
+    if (worklogRows.length === 0) {
+      throw new Error(
+        "No usable worklog rows found in CSV (after filtering summary rows).",
+      );
+    }
+
+    appendLog(`Usable worklog rows: ${worklogRows.length}`);
+
+    let workAreasByKey: WorkAreasByKey | null = null;
+    const areasFile = areasInput.files?.[0] ?? null;
+    if (areasFile) {
+      appendLog("Reading optional work areas CSV...");
+      const areasCsv = await areasFile.text();
+      workAreasByKey = readWorkAreaMapFromCsv(areasCsv);
+      appendLog(`Loaded work areas: ${workAreasByKey.size}`);
+      warnOnMissingWorkAreaMappings(worklogRows, workAreasByKey);
+    }
+
+    return {
+      worklogFile,
+      worklogRows,
+      workAreasByKey,
+      weekly,
+    };
+  };
+
+  generateExcelButton.addEventListener("click", async () => {
+    resetPreviousRunState();
+    const startedRunVersion = runVersion;
+    isGeneratingExcel = true;
+    syncUI();
+
+    try {
+      const loaded = await loadWorklogData();
+      if (!loaded) return;
+      downloadExcelFileName = getExcelFileNameFromWorklog(
+        loaded.worklogFile.name,
+      );
+
+      appendLog("Generating XLSX...");
+      const resultBytes = createXlsx({
+        worklogRows: loaded.worklogRows,
+        workAreasByKey: loaded.workAreasByKey,
+        weekly: loaded.weekly,
+        includeLegend: Boolean(legendInput.checked && loaded.workAreasByKey),
+      });
+
+      if (startedRunVersion !== runVersion) {
+        return;
+      }
+
+      const resultArrayBuffer = resultBytes.buffer.slice(
+        resultBytes.byteOffset,
+        resultBytes.byteOffset + resultBytes.byteLength,
+      );
+      const blobBytes = new Uint8Array(resultBytes.byteLength);
+      blobBytes.set(new Uint8Array(resultArrayBuffer));
+
+      const blob = new Blob([blobBytes], { type: XLSX_MIME_TYPE });
+      downloadExcelUrl = URL.createObjectURL(blob);
+      setExcelResultAvailableState(true);
+      downloadExcelButton.disabled = false;
+      appendLog("XLSX created successfully. Download Excel is now enabled.");
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      appendLog(`Error: ${message}`);
+    } finally {
+      isGeneratingExcel = false;
+      syncUI();
+    }
   });
 
   uploadForm.addEventListener("submit", async (event) => {
@@ -222,42 +361,21 @@ if (
     }
     downloadFileName = getResultFileNameFromWorklog(worklogFile.name);
 
-    generateButton.disabled = true;
+    isGeneratingDocx = true;
+    syncUI();
 
     try {
-      appendLog("Reading files...");
       const templateArrayBuffer = await templateFile.arrayBuffer();
-      const worklogCsv = await worklogFile.text();
-
-      const dailyRows = readWorklogRowsFromCsv(worklogCsv, appendLog);
-      const weekly = weeklyInput.checked;
-      const worklogRows = weekly ? aggregateWeeklyRows(dailyRows) : dailyRows;
-
-      if (worklogRows.length === 0) {
-        throw new Error(
-          "No usable worklog rows found in CSV (after filtering summary rows).",
-        );
-      }
-
-      appendLog(`Usable worklog rows: ${worklogRows.length}`);
-
-      let workAreasByKey: WorkAreasByKey | null = null;
-      const areasFile = areasInput.files?.[0] ?? null;
-      if (areasFile) {
-        appendLog("Reading optional work areas CSV...");
-        const areasCsv = await areasFile.text();
-        workAreasByKey = readWorkAreaMapFromCsv(areasCsv);
-        appendLog(`Loaded work areas: ${workAreasByKey.size}`);
-        warnOnMissingWorkAreaMappings(worklogRows, workAreasByKey);
-      }
+      const loaded = await loadWorklogData();
+      if (!loaded) return;
 
       appendLog("Generating DOCX...");
       const resultBytes = createDocx({
         templateArrayBuffer,
-        worklogRows,
-        workAreasByKey,
-        weekly,
-        includeLegend: Boolean(legendInput.checked && workAreasByKey),
+        worklogRows: loaded.worklogRows,
+        workAreasByKey: loaded.workAreasByKey,
+        weekly: loaded.weekly,
+        includeLegend: Boolean(legendInput.checked && loaded.workAreasByKey),
       });
 
       if (startedRunVersion !== runVersion) {
@@ -273,13 +391,14 @@ if (
 
       const blob = new Blob([blobBytes], { type: DOCX_MIME_TYPE });
       downloadUrl = URL.createObjectURL(blob);
-      setResultAvailableState(true);
+      setDocxResultAvailableState(true);
       downloadButton.disabled = false;
       appendLog("DOCX created successfully. Download result is now enabled.");
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       appendLog(`Error: ${message}`);
     } finally {
+      isGeneratingDocx = false;
       syncUI();
     }
   });

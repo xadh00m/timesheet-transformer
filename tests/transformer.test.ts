@@ -2,10 +2,12 @@ import { describe, expect, it } from "vitest";
 import PizZip from "pizzip";
 import { aggregateWeeklyRows } from "../src/transformer/aggregation";
 import { createDocx } from "../src/transformer/docx";
+import { createXlsx } from "../src/transformer/excel";
 import {
   readWorkAreaMapFromCsv,
   readWorklogRowsFromCsv,
 } from "../src/transformer/csv";
+import * as XLSX from "xlsx";
 
 const noopLog = () => {};
 
@@ -161,5 +163,108 @@ TEST-2,Unused Team,UT`,
     expect(xml).toContain("Team Alpha");
     expect(xml).not.toContain(">UT<");
     expect(xml).not.toContain(">Unused Team<");
+  });
+});
+
+describe("transformer XLSX export", () => {
+  it("creates summary hours cell as formula", () => {
+    const rows = readWorklogRowsFromCsv(
+      `User,Worklog,Key,Logged,Date
+Test User A,task a,TEST-1,1h,03/02/26 at 08:00
+Test User A,task b,TEST-1,2h,03/02/26 at 09:00`,
+      noopLog,
+    );
+
+    const bytes = createXlsx({
+      worklogRows: rows,
+      workAreasByKey: null,
+      weekly: false,
+      includeLegend: false,
+    });
+
+    const workbook = XLSX.read(bytes, { type: "array", cellFormula: true });
+    const sheet = workbook.Sheets[workbook.SheetNames[0] ?? ""];
+    expect(sheet).toBeTruthy();
+
+    const formulae = sheet ? XLSX.utils.sheet_to_formulae(sheet) : [];
+    expect(formulae).toContain("C4=SUM(C2:C3)");
+    expect(sheet?.B4?.v).toBe("Summe");
+  });
+
+  it("adds legend rows below table when selected", () => {
+    const rows = readWorklogRowsFromCsv(
+      `User,Worklog,Key,Logged,Date
+Test User A,task a,TEST-1,1h,03/02/26 at 08:00`,
+      noopLog,
+    );
+    const workAreas = readWorkAreaMapFromCsv(
+      `Key,Name,Alias
+TEST-1,Team Alpha,TA
+TEST-2,Unused Team,UT`,
+    );
+
+    const bytes = createXlsx({
+      worklogRows: rows,
+      workAreasByKey: workAreas,
+      weekly: false,
+      includeLegend: true,
+    });
+
+    const workbook = XLSX.read(bytes, { type: "array", cellFormula: true });
+    const sheet = workbook.Sheets[workbook.SheetNames[0] ?? ""];
+    const values = sheet ? XLSX.utils.sheet_to_json(sheet, { header: 1 }) : [];
+    const flat = (values as Array<Array<unknown>>).flat().map(String);
+
+    expect(flat).toContain("Legende");
+    expect(flat).toContain("TA");
+    expect(flat).toContain("Team Alpha");
+    expect(flat).not.toContain("UT");
+    expect(flat).not.toContain("Unused Team");
+  });
+
+  it("merges first-column cells for weekly rows with the same week", () => {
+    const csv = `User,Worklog,Key,Logged,Date
+Test User A,task a,TEST-1,1h,03/02/26 at 08:00
+Test User B,task b,TEST-1,1h,04/02/26 at 08:00
+Test User A,task c,TEST-1,1h,10/02/26 at 08:00`;
+    const daily = readWorklogRowsFromCsv(csv, noopLog);
+    const weeklyRows = aggregateWeeklyRows(daily);
+
+    const bytes = createXlsx({
+      worklogRows: weeklyRows,
+      workAreasByKey: null,
+      weekly: true,
+      includeLegend: false,
+    });
+
+    const workbook = XLSX.read(bytes, { type: "array", cellFormula: true });
+    const sheet = workbook.Sheets[workbook.SheetNames[0] ?? ""];
+    const merges = sheet?.["!merges"] ?? [];
+    expect(merges).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          s: { r: 1, c: 0 },
+          e: { r: 2, c: 0 },
+        }),
+      ]),
+    );
+  });
+
+  it("renders weekly first-column text with line break", () => {
+    const csv = `User,Worklog,Key,Logged,Date
+Test User A,task a,TEST-1,1h,03/02/26 at 08:00`;
+    const daily = readWorklogRowsFromCsv(csv, noopLog);
+    const weeklyRows = aggregateWeeklyRows(daily);
+
+    const bytes = createXlsx({
+      worklogRows: weeklyRows,
+      workAreasByKey: null,
+      weekly: true,
+      includeLegend: false,
+    });
+
+    const workbook = XLSX.read(bytes, { type: "array", cellFormula: true });
+    const sheet = workbook.Sheets[workbook.SheetNames[0] ?? ""];
+    expect(String(sheet?.A2?.v ?? "")).toContain("\n");
   });
 });

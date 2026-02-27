@@ -26,6 +26,10 @@ vi.mock("../src/transformer/docx", () => ({
   createDocx: vi.fn(() => new Uint8Array([1, 2, 3])),
 }));
 
+vi.mock("../src/transformer/excel", () => ({
+  createXlsx: vi.fn(() => new Uint8Array([1, 2, 3])),
+}));
+
 function setInputFiles(input: HTMLInputElement, files: File[]): void {
   Object.defineProperty(input, "files", {
     value: files,
