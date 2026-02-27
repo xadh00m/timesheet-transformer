@@ -92,6 +92,9 @@ describe("main UI state handling", () => {
     const downloadButton = document.getElementById(
       "downloadButton",
     ) as HTMLButtonElement;
+    const generateExcelButton = document.getElementById(
+      "generateExcelButton",
+    ) as HTMLButtonElement;
 
     setInputFiles(templateInput, [makeTemplateFileMock()]);
     setInputFiles(worklogInput, [makeWorklogFileMock()]);
@@ -104,6 +107,32 @@ describe("main UI state handling", () => {
     expect(generateButton.hidden).toBe(true);
     expect(downloadButton.hidden).toBe(false);
     expect(downloadButton.disabled).toBe(false);
+    expect(generateExcelButton.disabled).toBe(false);
+  });
+
+  it("swaps excel generate/download buttons after successful excel generation", async () => {
+    await import("../src/main");
+
+    const worklogInput = document.getElementById(
+      "worklogInput",
+    ) as HTMLInputElement;
+    const generateExcelButton = document.getElementById(
+      "generateExcelButton",
+    ) as HTMLButtonElement;
+    const downloadExcelButton = document.getElementById(
+      "downloadExcelButton",
+    ) as HTMLButtonElement;
+
+    setInputFiles(worklogInput, [makeWorklogFileMock()]);
+    worklogInput.dispatchEvent(new Event("change", { bubbles: true }));
+
+    expect(generateExcelButton.disabled).toBe(false);
+    generateExcelButton.click();
+
+    await waitUntil(() =>
+      Boolean(generateExcelButton.hidden && !downloadExcelButton.hidden),
+    );
+    expect(downloadExcelButton.disabled).toBe(false);
   });
 
   it("resets previous result state on input/checkbox changes", async () => {
@@ -143,5 +172,181 @@ describe("main UI state handling", () => {
     expect(generateButton.hidden).toBe(false);
     expect(downloadButton.hidden).toBe(true);
     expect(downloadButton.disabled).toBe(true);
+  });
+
+  it("enables legend only when work areas file is selected", async () => {
+    await import("../src/main");
+
+    const areasInput = document.getElementById(
+      "areasInput",
+    ) as HTMLInputElement;
+    const legendInput = document.getElementById(
+      "legendInput",
+    ) as HTMLInputElement;
+
+    expect(legendInput.disabled).toBe(true);
+
+    setInputFiles(areasInput, [makeWorklogFileMock()]);
+    areasInput.dispatchEvent(new Event("change", { bubbles: true }));
+    expect(legendInput.disabled).toBe(false);
+
+    legendInput.checked = true;
+    setInputFiles(areasInput, []);
+    areasInput.dispatchEvent(new Event("change", { bubbles: true }));
+    expect(legendInput.disabled).toBe(true);
+    expect(legendInput.checked).toBe(false);
+  });
+
+  it("shows selected file names in custom filename labels", async () => {
+    await import("../src/main");
+
+    const templateInput = document.getElementById(
+      "templateInput",
+    ) as HTMLInputElement;
+    const worklogInput = document.getElementById(
+      "worklogInput",
+    ) as HTMLInputElement;
+    const worklogFileName = document.getElementById(
+      "worklogFileName",
+    ) as HTMLSpanElement;
+    const templateFileName = document.getElementById(
+      "templateFileName",
+    ) as HTMLSpanElement;
+
+    setInputFiles(worklogInput, [makeWorklogFileMock()]);
+    worklogInput.dispatchEvent(new Event("change", { bubbles: true }));
+    setInputFiles(templateInput, [makeTemplateFileMock()]);
+    templateInput.dispatchEvent(new Event("change", { bubbles: true }));
+
+    expect(worklogFileName.textContent).toBe("worklog.csv");
+    expect(templateFileName.textContent).toBe("Template.docx");
+  });
+
+  it("keeps DOCX disabled until both worklog and template are selected", async () => {
+    await import("../src/main");
+
+    const templateInput = document.getElementById(
+      "templateInput",
+    ) as HTMLInputElement;
+    const worklogInput = document.getElementById(
+      "worklogInput",
+    ) as HTMLInputElement;
+    const generateButton = document.getElementById(
+      "generateButton",
+    ) as HTMLButtonElement;
+
+    expect(generateButton.disabled).toBe(true);
+
+    setInputFiles(worklogInput, [makeWorklogFileMock()]);
+    worklogInput.dispatchEvent(new Event("change", { bubbles: true }));
+    expect(generateButton.disabled).toBe(true);
+
+    setInputFiles(templateInput, [makeTemplateFileMock()]);
+    templateInput.dispatchEvent(new Event("change", { bubbles: true }));
+    expect(generateButton.disabled).toBe(false);
+  });
+
+  it("enables Excel with worklog only, independent from template", async () => {
+    await import("../src/main");
+
+    const worklogInput = document.getElementById(
+      "worklogInput",
+    ) as HTMLInputElement;
+    const generateExcelButton = document.getElementById(
+      "generateExcelButton",
+    ) as HTMLButtonElement;
+
+    expect(generateExcelButton.disabled).toBe(true);
+
+    setInputFiles(worklogInput, [makeWorklogFileMock()]);
+    worklogInput.dispatchEvent(new Event("change", { bubbles: true }));
+    expect(generateExcelButton.disabled).toBe(false);
+  });
+
+  it("resets current export result when an input changes", async () => {
+    await import("../src/main");
+
+    const templateInput = document.getElementById(
+      "templateInput",
+    ) as HTMLInputElement;
+    const worklogInput = document.getElementById(
+      "worklogInput",
+    ) as HTMLInputElement;
+    const generateExcelButton = document.getElementById(
+      "generateExcelButton",
+    ) as HTMLButtonElement;
+    const downloadExcelButton = document.getElementById(
+      "downloadExcelButton",
+    ) as HTMLButtonElement;
+    const generateButton = document.getElementById(
+      "generateButton",
+    ) as HTMLButtonElement;
+    const downloadButton = document.getElementById(
+      "downloadButton",
+    ) as HTMLButtonElement;
+    const uploadForm = document.getElementById("uploadForm") as HTMLFormElement;
+
+    setInputFiles(worklogInput, [makeWorklogFileMock()]);
+    worklogInput.dispatchEvent(new Event("change", { bubbles: true }));
+    generateExcelButton.click();
+    await waitUntil(
+      () => generateExcelButton.hidden && !downloadExcelButton.hidden,
+    );
+
+    setInputFiles(templateInput, [makeTemplateFileMock()]);
+    templateInput.dispatchEvent(new Event("change", { bubbles: true }));
+    uploadForm.dispatchEvent(
+      new Event("submit", { bubbles: true, cancelable: true }),
+    );
+    await waitUntil(() => generateButton.hidden && !downloadButton.hidden);
+
+    expect(downloadButton.hidden).toBe(false);
+
+    setInputFiles(worklogInput, [makeWorklogFileMock()]);
+    worklogInput.dispatchEvent(new Event("change", { bubbles: true }));
+
+    expect(downloadExcelButton.hidden).toBe(true);
+    expect(downloadButton.hidden).toBe(true);
+  });
+
+  it("allows generating Excel first and then DOCX", async () => {
+    await import("../src/main");
+
+    const templateInput = document.getElementById(
+      "templateInput",
+    ) as HTMLInputElement;
+    const worklogInput = document.getElementById(
+      "worklogInput",
+    ) as HTMLInputElement;
+    const generateExcelButton = document.getElementById(
+      "generateExcelButton",
+    ) as HTMLButtonElement;
+    const downloadExcelButton = document.getElementById(
+      "downloadExcelButton",
+    ) as HTMLButtonElement;
+    const generateButton = document.getElementById(
+      "generateButton",
+    ) as HTMLButtonElement;
+    const downloadButton = document.getElementById(
+      "downloadButton",
+    ) as HTMLButtonElement;
+    const uploadForm = document.getElementById("uploadForm") as HTMLFormElement;
+
+    setInputFiles(worklogInput, [makeWorklogFileMock()]);
+    worklogInput.dispatchEvent(new Event("change", { bubbles: true }));
+    generateExcelButton.click();
+    await waitUntil(
+      () => generateExcelButton.hidden && !downloadExcelButton.hidden,
+    );
+
+    setInputFiles(templateInput, [makeTemplateFileMock()]);
+    templateInput.dispatchEvent(new Event("change", { bubbles: true }));
+    uploadForm.dispatchEvent(
+      new Event("submit", { bubbles: true, cancelable: true }),
+    );
+    await waitUntil(() => generateButton.hidden && !downloadButton.hidden);
+
+    expect(downloadExcelButton.hidden).toBe(true);
+    expect(downloadButton.disabled).toBe(false);
   });
 });

@@ -222,6 +222,33 @@ TEST-2,Unused Team,UT`,
     expect(flat).not.toContain("Unused Team");
   });
 
+  it("does not add legend rows when includeLegend is false", () => {
+    const rows = readWorklogRowsFromCsv(
+      `User,Worklog,Key,Logged,Date
+Test User A,task a,TEST-1,1h,03/02/26 at 08:00`,
+      noopLog,
+    );
+    const workAreas = readWorkAreaMapFromCsv(
+      `Key,Name,Alias
+TEST-1,Team Alpha,TA`,
+    );
+
+    const bytes = createXlsx({
+      worklogRows: rows,
+      workAreasByKey: workAreas,
+      weekly: false,
+      includeLegend: false,
+    });
+
+    const workbook = XLSX.read(bytes, { type: "array", cellFormula: true });
+    const sheet = workbook.Sheets[workbook.SheetNames[0] ?? ""];
+    const values = sheet ? XLSX.utils.sheet_to_json(sheet, { header: 1 }) : [];
+    const flat = (values as Array<Array<unknown>>).flat().map(String);
+
+    expect(flat).not.toContain("Legende");
+    expect(flat).not.toContain("Team Alpha");
+  });
+
   it("merges first-column cells for weekly rows with the same week", () => {
     const csv = `User,Worklog,Key,Logged,Date
 Test User A,task a,TEST-1,1h,03/02/26 at 08:00

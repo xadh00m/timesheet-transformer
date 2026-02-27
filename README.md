@@ -1,6 +1,9 @@
 # Timesheet Transformer (Web)
 
-A browser-based tool that transforms worklog CSV data into a DOCX table using a DOCX template.
+A browser-based tool that transforms worklog CSV data into:
+
+- an Excel table (`.xlsx`), and
+- a DOCX table (`.docx`) based on a template.
 
 ## Requirements
 
@@ -27,19 +30,34 @@ Open the app at:
 
 ## How to Use the Webpage
 
-1. **Template DOCX**: Upload your DOCX template file.
-2. **Worklog CSV**: Upload your worklog export CSV.
-3. **Work Areas CSV (optional)**: Upload work area mapping CSV.
-4. (Optional) Enable **Weekly Aggregation**.
-5. (Optional) Enable **Include legend** (available only when a Work Areas CSV is selected).
-6. Click **Generate DOCX**.
-7. After success, the button switches to **Download result**.
+### 1) Worklog Section
+
+1. Upload **Worklog (csv)** (required).
+2. Upload **Work Areas (csv)** (optional).
+3. Optionally enable:
+
+- **Weekly Aggregation**
+- **Include legend** (enabled only when Work Areas file is present)
+
+4. Click **Generate Excel**.
+5. After success, click **Download Excel**.
+
+### 2) Timesheet Section
+
+1. Upload **Template (docx)** (required).
+2. Click **Generate DOCX**.
+3. After success, click **Download DOCX**.
+
+Selected file names are shown next to each file input.
 
 ### Notes on UI Behavior
 
-- Any file/checkbox change resets the previous result state.
+- Any file or checkbox change resets previous generated results.
+- The log output is scrollable and records parsing/filtering warnings and export status.
 - If Work Areas CSV is provided, warnings are logged for worklog rows with no matching work area key.
-- The output filename is based on the selected worklog CSV filename (same base name, `.docx` extension).
+- Output filenames are based on the selected worklog CSV filename:
+  - `<worklog-name>.xlsx`
+  - `<worklog-name>.docx`
 
 ## Input Format
 
@@ -70,6 +88,16 @@ Expected headers:
   - `Bereich` values are resolved by matching worklog keys.
   - Legend contains only work area keys that are actually referenced in the worklog.
 - Summary row keeps the cells that previously contained `Arbeitstage` empty.
+
+### Excel Output Details
+
+- Summary uses an Excel formula in the hours cell (`SUM(...)`) instead of a fixed value.
+- Weekly mode:
+  - merges first-column cells for consecutive rows in the same week,
+  - renders week number and date range with a line break,
+  - centers weekly cells horizontally/vertically.
+- Worklog and legend tables have black borders, with a visual gap between them.
+- Column widths follow DOCX-like proportions.
 
 ## Build
 
