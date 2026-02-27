@@ -24,9 +24,11 @@ if (app) {
         <legend>1. Worklog</legend>
         <label class="file-label">Worklog (csv):
           <input type="file" id="worklogInput" accept=".csv" required />
+          <span id="worklogFileName" class="file-name"></span>
         </label>
         <label class="file-label">Work Areas (csv):
           <input type="file" id="areasInput" accept=".csv" />
+          <span id="areasFileName" class="file-name"></span>
         </label>
         <label class="checkbox-label">
           <input type="checkbox" id="weeklyInput" />
@@ -43,6 +45,7 @@ if (app) {
         <legend>2. Timesheet</legend>
         <label class="file-label">Template (docx):
           <input type="file" id="templateInput" accept=".docx" required />
+          <span id="templateFileName" class="file-name"></span>
         </label>
         <button type="submit" id="generateButton">Generate DOCX</button>
         <button type="button" id="downloadButton" disabled hidden>Download DOCX</button>
@@ -88,6 +91,15 @@ const downloadExcelButton = document.getElementById(
 const logOutput = document.getElementById(
   "logOutput",
 ) as HTMLTextAreaElement | null;
+const worklogFileName = document.getElementById(
+  "worklogFileName",
+) as HTMLSpanElement | null;
+const areasFileName = document.getElementById(
+  "areasFileName",
+) as HTMLSpanElement | null;
+const templateFileName = document.getElementById(
+  "templateFileName",
+) as HTMLSpanElement | null;
 
 type WorkAreasByKey = Map<string, { name: string; alias: string }>;
 
@@ -111,7 +123,10 @@ if (
   generateExcelButton &&
   downloadButton &&
   downloadExcelButton &&
-  logOutput
+  logOutput &&
+  worklogFileName &&
+  areasFileName &&
+  templateFileName
 ) {
   const setDocxResultAvailableState = (hasResult: boolean): void => {
     generateButton.hidden = hasResult;
@@ -214,6 +229,10 @@ if (
     const hasAreasFile = Boolean(areasInput.files?.[0]);
     const hasWorklog = Boolean(worklogInput.files?.[0]);
     const hasTemplate = Boolean(templateInput.files?.[0]);
+
+    worklogFileName.textContent = worklogInput.files?.[0]?.name ?? "";
+    areasFileName.textContent = areasInput.files?.[0]?.name ?? "";
+    templateFileName.textContent = templateInput.files?.[0]?.name ?? "";
 
     legendInput.disabled = !hasAreasFile;
     legendLabel.classList.toggle("is-disabled", !hasAreasFile);
