@@ -30,29 +30,32 @@ Open the app at:
 
 ## How to Use the Webpage
 
-### 1) Worklog Section
+### 1) Input + Processing
 
 1. Upload **Worklog (csv)** (required).
 2. Upload **Work Areas (csv)** (optional).
-3. Optionally enable:
+3. Click **Process**.
+4. Inspect the scrollable log output.
+
+Processing validates and normalizes data. Export options do not affect processing.
+
+### 2) Export
+
+1. Optionally set export options:
 
 - **Weekly Aggregation**
 - **Include legend** (enabled only when Work Areas file is present)
 
-4. Click **Generate Excel**.
-5. After success, click **Download Excel**.
+2. Click **Download Excel** (enabled after successful processing).
+3. Click **Download DOCX**.
+4. Choose the template DOCX file in the file picker dialog.
 
-### 2) Timesheet Section
-
-1. Upload **Template (docx)** (required).
-2. Click **Generate DOCX**.
-3. After success, click **Download DOCX**.
-
-Selected file names are shown next to each file input.
+Selected file names are shown next to Worklog/Work Areas inputs.
 
 ### Notes on UI Behavior
 
-- Any file or checkbox change resets previous generated results.
+- Changing **Worklog** or **Work Areas** invalidates processed data and requires re-processing.
+- Changing export options (**Weekly**, **Include legend**) does not require re-processing.
 - The log output is scrollable and records parsing/filtering warnings and export status.
 - If Work Areas CSV is provided, warnings are logged for worklog rows with no matching work area key.
 - Output filenames are based on the selected worklog CSV filename:
@@ -98,6 +101,13 @@ Expected headers:
   - centers weekly cells horizontally/vertically.
 - Worklog and legend tables have black borders, with a visual gap between them.
 - Column widths follow DOCX-like proportions.
+
+### Processing vs Export
+
+- Processing always stores normalized daily rows.
+- Final export structure is created at export time:
+  - weekly grouping is applied only during export,
+  - legend inclusion is applied only during export.
 
 ## Build
 

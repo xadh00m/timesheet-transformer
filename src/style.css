@@ -11,10 +11,15 @@ h1 {
 form {
   display: grid;
   gap: 0.8rem;
-  max-width: 700px;
+  width: 100%;
+  max-width: none;
+  box-sizing: border-box;
 }
 
 .form-section {
+  width: 100%;
+  box-sizing: border-box;
+  min-inline-size: 0;
   margin: 0;
   padding: 0.8rem 1rem 1rem;
   border: 1px solid #d8dee6;
@@ -22,6 +27,10 @@ form {
   background: #fff;
   display: grid;
   gap: 0.6rem;
+}
+
+#exportSection[hidden] {
+  display: none !important;
 }
 
 .form-section > legend {
@@ -75,14 +84,29 @@ button {
 
 #logOutput {
   width: 100%;
-  max-width: 900px;
-  min-height: 260px;
-  margin-top: 2rem;
+  box-sizing: border-box;
+  min-height: 140px;
+  max-height: 260px;
   background: #fff;
   border-radius: 8px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
   padding: 1rem;
   border: 1px solid #d8dee6;
-  resize: vertical;
-  overflow: auto;
+  white-space: pre-wrap;
+  line-height: 1.35;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.log-line {
+  color: #2d3748;
+}
+
+.log-line-warn {
+  color: #b42318;
+}
+
+.log-line-error {
+  color: #b42318;
+  font-weight: 600;
 }
