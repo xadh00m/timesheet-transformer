@@ -5,7 +5,7 @@ import {
 } from "./transformer/csv";
 import { createDocx } from "./transformer/docx";
 import { createXlsx } from "./transformer/excel";
-import type { WorklogRow } from "./transformer/types";
+import type { LogLevel, WorkAreasByKey, WorklogRow } from "./transformer/types";
 import "./style.css";
 
 const RESULT_DOCX_FILE_NAME = "result.docx";
@@ -15,7 +15,6 @@ const DOCX_MIME_TYPE =
 const XLSX_MIME_TYPE =
   "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
 
-type WorkAreasByKey = Map<string, { name: string; alias: string }>;
 type ProcessedData = {
   worklogFileName: string;
   dailyRows: WorklogRow[];
@@ -117,10 +116,7 @@ if (
   worklogFileName &&
   areasFileName
 ) {
-  const appendLog = (
-    line: string,
-    level: "info" | "warn" | "error" = "info",
-  ): void => {
+  const appendLog = (line: string, level: LogLevel = "info"): void => {
     logOutput.hidden = false;
     const lineNode = document.createElement("div");
     const resolvedLevel =

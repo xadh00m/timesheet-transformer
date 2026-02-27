@@ -57,6 +57,7 @@ Selected file names are shown next to Worklog/Work Areas inputs.
 - Changing **Worklog** or **Work Areas** invalidates processed data and requires re-processing.
 - Changing export options (**Weekly**, **Include legend**) does not require re-processing.
 - The log output is scrollable and records parsing/filtering warnings and export status.
+- Warning and error messages are highlighted in red in the log.
 - If Work Areas CSV is provided, warnings are logged for worklog rows with no matching work area key.
 - Output filenames are based on the selected worklog CSV filename:
   - `<worklog-name>.xlsx`

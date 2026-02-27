@@ -81,6 +81,10 @@ describe("main process and export workflow", () => {
       value: vi.fn(),
       configurable: true,
     });
+    Object.defineProperty(globalThis.HTMLAnchorElement.prototype, "click", {
+      value: vi.fn(),
+      configurable: true,
+    });
   });
 
   it("enables Process when worklog is selected", async () => {
