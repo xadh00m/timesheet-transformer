@@ -16,30 +16,31 @@ if (app) {
   app.innerHTML = `
     <h1>Timesheet Transformer</h1>
     <form id="uploadForm">
-      <label>Template DOCX:
-        <input type="file" id="templateInput" accept=".docx" required />
-      </label>
-      <br />
-      <label>Worklog CSV:
-        <input type="file" id="worklogInput" accept=".csv" required />
-      </label>
-      <br />
-      <label>Work Areas CSV (optional):
-        <input type="file" id="areasInput" accept=".csv" />
-      </label>
-      <br />
-      <label>
-        <input type="checkbox" id="weeklyInput" />
-        Weekly Aggregation
-      </label>
-      <br />
-      <label id="legendLabel">
-        <input type="checkbox" id="legendInput" />
-        Include legend
-      </label>
-      <br />
-      <button type="submit" id="generateButton">Generate DOCX</button>
-      <button type="button" id="downloadButton" disabled hidden>Download result</button>
+      <fieldset class="form-section">
+        <legend>1. Worklog</legend>
+        <label class="file-label">Worklog (csv):
+          <input type="file" id="worklogInput" accept=".csv" required />
+        </label>
+        <label class="file-label">Work Areas (csv):
+          <input type="file" id="areasInput" accept=".csv" />
+        </label>
+        <label class="checkbox-label">
+          <input type="checkbox" id="weeklyInput" />
+          Weekly Aggregation
+        </label>
+      </fieldset>
+      <fieldset class="form-section">
+        <legend>2. Timesheet</legend>
+        <label class="file-label">Template (docx):
+          <input type="file" id="templateInput" accept=".docx" required />
+        </label>
+        <label id="legendLabel" class="checkbox-label">
+          <input type="checkbox" id="legendInput" />
+          Include legend
+        </label>
+        <button type="submit" id="generateButton">Generate</button>
+        <button type="button" id="downloadButton" disabled hidden>Download</button>
+      </fieldset>
     </form>
     <textarea id="logOutput" readonly></textarea>
   `;
@@ -159,7 +160,6 @@ if (
     }
     downloadFileName = RESULT_DOCX_FILE_NAME;
     setResultAvailableState(false);
-    generateButton.disabled = false;
     if (clearLog) {
       logOutput.value = "";
     }
@@ -167,28 +167,33 @@ if (
 
   legendInput.disabled = true;
 
-  const syncLegendAvailability = (): void => {
+  const syncUI = (): void => {
     const hasAreasFile = Boolean(areasInput.files?.[0]);
+    const hasWorklog = Boolean(worklogInput.files?.[0]);
+    const hasTemplate = Boolean(templateInput.files?.[0]);
+
     legendInput.disabled = !hasAreasFile;
     legendLabel.classList.toggle("is-disabled", !hasAreasFile);
     if (!hasAreasFile) {
       legendInput.checked = false;
     }
+
+    generateButton.disabled = !(hasWorklog && hasTemplate);
   };
 
-  const registerResetOnChange = (element: HTMLElement): void => {
-    element.addEventListener("change", () => resetPreviousRunState());
+  const registerChangeHandler = (element: HTMLElement): void => {
+    element.addEventListener("change", () => {
+      resetPreviousRunState();
+      syncUI();
+    });
   };
 
-  registerResetOnChange(templateInput);
-  registerResetOnChange(worklogInput);
-  registerResetOnChange(weeklyInput);
-  registerResetOnChange(legendInput);
-  areasInput.addEventListener("change", () => {
-    syncLegendAvailability();
-    resetPreviousRunState();
-  });
-  syncLegendAvailability();
+  registerChangeHandler(templateInput);
+  registerChangeHandler(worklogInput);
+  registerChangeHandler(areasInput);
+  registerChangeHandler(weeklyInput);
+  registerChangeHandler(legendInput);
+  syncUI();
   setResultAvailableState(false);
 
   downloadButton.addEventListener("click", () => {
@@ -275,7 +280,7 @@ if (
       const message = err instanceof Error ? err.message : String(err);
       appendLog(`Error: ${message}`);
     } finally {
-      generateButton.disabled = false;
+      syncUI();
     }
   });
 }
