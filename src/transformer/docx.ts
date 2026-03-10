@@ -367,6 +367,88 @@ function replaceParagraphContainingOnlyText(options: {
   );
 }
 
+function replaceParagraphContainingOnlyTextKeepingStyle(options: {
+  xml: string;
+  needleText: string;
+  replacementText: string;
+}): string {
+  const paragraphs = options.xml.match(/<w:p[\s\S]*?<\/w:p>/g);
+  if (!paragraphs) throw new Error("DOCX document.xml has no paragraphs");
+
+  for (const paragraph of paragraphs) {
+    const text = extractParagraphText(paragraph).replace(/\s+/g, " ").trim();
+    if (text !== options.needleText) continue;
+
+    let didReplace = false;
+    let isFirstTextNode = true;
+    const updatedParagraph = paragraph.replace(
+      /<w:t(\s[^>]*)?>([\s\S]*?)<\/w:t>/g,
+      (_full, attrs) => {
+        const safeAttrs = String(attrs ?? "");
+        if (isFirstTextNode) {
+          isFirstTextNode = false;
+          didReplace = true;
+          return `<w:t${safeAttrs}>${escapeXml(options.replacementText)}</w:t>`;
+        }
+        return `<w:t${safeAttrs}></w:t>`;
+      },
+    );
+
+    if (!didReplace) {
+      throw new Error(
+        `Could not replace text for DOCX placeholder paragraph '${options.needleText}'`,
+      );
+    }
+
+    return options.xml.replace(paragraph, updatedParagraph);
+  }
+
+  throw new Error(
+    `Could not find DOCX placeholder paragraph '${options.needleText}'`,
+  );
+}
+
+function resolveDominantMonthYear(worklogRows: WorklogRow[]): string {
+  if (worklogRows.length === 0) return dayjs().format("MM/YYYY");
+
+  const counts = new Map<string, { count: number; firstSort: number }>();
+
+  for (const row of worklogRows) {
+    const date =
+      row.dateValue instanceof Date ? dayjs(row.dateValue) : dayjs(row.dateSort);
+    if (!date.isValid()) continue;
+    const key = date.format("MM/YYYY");
+    const sort = row.dateSort;
+    const existing = counts.get(key);
+    if (!existing) {
+      counts.set(key, { count: 1, firstSort: sort });
+      continue;
+    }
+    existing.count += 1;
+    if (sort < existing.firstSort) existing.firstSort = sort;
+  }
+
+  if (counts.size === 0) return dayjs().format("MM/YYYY");
+
+  let bestKey: string | null = null;
+  let bestCount = -1;
+  let bestFirstSort = Number.POSITIVE_INFINITY;
+  for (const [key, entry] of counts.entries()) {
+    if (entry.count > bestCount) {
+      bestKey = key;
+      bestCount = entry.count;
+      bestFirstSort = entry.firstSort;
+      continue;
+    }
+    if (entry.count === bestCount && entry.firstSort < bestFirstSort) {
+      bestKey = key;
+      bestFirstSort = entry.firstSort;
+    }
+  }
+
+  return bestKey ?? dayjs().format("MM/YYYY");
+}
+
 function getReferencedWorkAreas(options: {
   worklogRows: WorklogRow[];
   workAreasByKey: Map<string, WorkAreaEntry>;
@@ -429,10 +511,24 @@ export function createDocx(options: {
     }
   }
 
-  const updatedXml = replaceParagraphContainingOnlyText({
+  const xmlWithTable = replaceParagraphContainingOnlyText({
     xml: documentXml,
-    needleText: "Tabelle",
+    needleText: "<Tabelle>",
     replacementXml: tableXml + explanationXml,
+  });
+
+  const todayGerman = dayjs().format("DD.MM.YYYY");
+  const xmlWithDate = replaceParagraphContainingOnlyTextKeepingStyle({
+    xml: xmlWithTable,
+    needleText: "<Datum>",
+    replacementText: todayGerman,
+  });
+
+  const dominantMonthYear = resolveDominantMonthYear(options.worklogRows);
+  const updatedXml = replaceParagraphContainingOnlyTextKeepingStyle({
+    xml: xmlWithDate,
+    needleText: "<Monat/Jahr>",
+    replacementText: dominantMonthYear,
   });
 
   zip.file(documentPath, updatedXml);

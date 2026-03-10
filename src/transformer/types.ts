@@ -1,4 +1,5 @@
-export type WorkAreaEntry = { name: string; alias: string };
+export type WorkAreaEntry = { name: string; alias: string; rate?: number | null };
+export type WorkAreasByKey = Map<string, WorkAreaEntry>;
 
 export type WorklogRow = {
   dateValue: Date | string;
@@ -12,3 +13,4 @@ export type WorklogRow = {
 };
 
 export type Logger = (line: string) => void;
+export type LogLevel = "info" | "warn" | "error";

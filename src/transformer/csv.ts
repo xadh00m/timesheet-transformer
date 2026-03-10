@@ -147,6 +147,7 @@ export function readWorklogRowsFromCsv(
 
 export function readWorkAreaMapFromCsv(
   csvContent: string,
+  log?: Logger,
 ): Map<string, WorkAreaEntry> {
   const records = parseCsvRows(csvContent);
   if (records.length < 2) {
@@ -160,19 +161,58 @@ export function readWorkAreaMapFromCsv(
   const idxKey = findIndex("Key");
   const idxName = findIndex("Name");
   const idxAlias = findIndex("Alias");
-  if (idxKey < 0 || idxName < 0 || idxAlias < 0) {
+  const idxRate = findIndex("Rate");
+  if (idxKey < 0 || idxName < 0 || idxAlias < 0 || idxRate < 0) {
     throw new Error(
-      'work_areas.csv header must contain "Key", "Name", and "Alias"',
+      'work_areas.csv header must contain "Key", "Name", "Alias", and "Rate"',
     );
   }
 
   const map = new Map<string, WorkAreaEntry>();
-  for (const record of records.slice(1)) {
+  for (let recordIndex = 1; recordIndex < records.length; recordIndex++) {
+    const record = records[recordIndex] ?? [];
     const key = normalizeTextField(record[idxKey]);
     const name = normalizeTextField(record[idxName]);
     const alias = normalizeTextField(record[idxAlias]);
-    if (!key || !name || !alias) continue;
-    map.set(key, { name, alias });
+    const rateRaw = normalizeTextField(record[idxRate]);
+    const lineRef = `record ${recordIndex + 1}`;
+
+    if (!key) {
+      log?.(
+        `Warning: discarded work_areas.csv ${lineRef}: missing Key | ${JSON.stringify({ key, name, alias, rateRaw })}`,
+      );
+      continue;
+    }
+    if (!name) {
+      log?.(
+        `Warning: discarded work_areas.csv ${lineRef}: missing Name | ${JSON.stringify({ key, name, alias, rateRaw })}`,
+      );
+      continue;
+    }
+    if (!alias) {
+      log?.(
+        `Warning: discarded work_areas.csv ${lineRef}: missing Alias | ${JSON.stringify({ key, name, alias, rateRaw })}`,
+      );
+      continue;
+    }
+
+    let resolvedRate: number | null = null;
+    if (!rateRaw) {
+      log?.(
+        `Warning: work_areas.csv ${lineRef}: missing Rate | ${JSON.stringify({ key, name, alias, rateRaw })}`,
+      );
+    } else {
+      const parsedRate = Number(rateRaw.replace(",", "."));
+      if (!Number.isFinite(parsedRate) || parsedRate <= 0) {
+        log?.(
+          `Warning: work_areas.csv ${lineRef}: invalid Rate | ${JSON.stringify({ key, name, alias, rateRaw })}`,
+        );
+      } else {
+        resolvedRate = parsedRate;
+      }
+    }
+
+    map.set(key, { name, alias, rate: resolvedRate });
   }
 
   return map;

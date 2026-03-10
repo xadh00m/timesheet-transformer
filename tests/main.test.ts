@@ -26,6 +26,10 @@ vi.mock("../src/transformer/docx", () => ({
   createDocx: vi.fn(() => new Uint8Array([1, 2, 3])),
 }));
 
+vi.mock("../src/transformer/excel", () => ({
+  createXlsx: vi.fn(() => new Uint8Array([1, 2, 3])),
+}));
+
 function setInputFiles(input: HTMLInputElement, files: File[]): void {
   Object.defineProperty(input, "files", {
     value: files,
@@ -47,6 +51,13 @@ function makeWorklogFileMock(): File {
   } as unknown as File;
 }
 
+function makeAreasFileMock(): File {
+  return {
+    name: "work_areas.csv",
+    text: async () => "Key,Name,Alias",
+  } as unknown as File;
+}
+
 async function waitUntil(predicate: () => boolean): Promise<void> {
   const timeoutMs = 250;
   const startedAt = Date.now();
@@ -58,7 +69,7 @@ async function waitUntil(predicate: () => boolean): Promise<void> {
   }
 }
 
-describe("main UI state handling", () => {
+describe("main process and export workflow", () => {
   beforeEach(() => {
     vi.resetModules();
     document.body.innerHTML = '<div id="app"></div>';
@@ -70,74 +81,163 @@ describe("main UI state handling", () => {
       value: vi.fn(),
       configurable: true,
     });
+    Object.defineProperty(globalThis.HTMLAnchorElement.prototype, "click", {
+      value: vi.fn(),
+      configurable: true,
+    });
   });
 
-  it("swaps generate/download buttons after successful generation", async () => {
+  it("enables Process when worklog is selected", async () => {
     await import("../src/main");
 
-    const templateInput = document.getElementById(
-      "templateInput",
-    ) as HTMLInputElement;
     const worklogInput = document.getElementById(
       "worklogInput",
     ) as HTMLInputElement;
-    const uploadForm = document.getElementById("uploadForm") as HTMLFormElement;
-    const generateButton = document.getElementById(
-      "generateButton",
-    ) as HTMLButtonElement;
-    const downloadButton = document.getElementById(
-      "downloadButton",
+    const processButton = document.getElementById(
+      "processButton",
     ) as HTMLButtonElement;
 
-    setInputFiles(templateInput, [makeTemplateFileMock()]);
+    expect(processButton.disabled).toBe(true);
     setInputFiles(worklogInput, [makeWorklogFileMock()]);
-
-    uploadForm.dispatchEvent(
-      new Event("submit", { bubbles: true, cancelable: true }),
-    );
-    await waitUntil(() => generateButton.hidden && !downloadButton.hidden);
-
-    expect(generateButton.hidden).toBe(true);
-    expect(downloadButton.hidden).toBe(false);
-    expect(downloadButton.disabled).toBe(false);
+    worklogInput.dispatchEvent(new Event("change", { bubbles: true }));
+    expect(processButton.disabled).toBe(false);
   });
 
-  it("resets previous result state on input/checkbox changes", async () => {
+  it("shows log and enables Download Excel after successful process", async () => {
     await import("../src/main");
 
-    const templateInput = document.getElementById(
-      "templateInput",
-    ) as HTMLInputElement;
     const worklogInput = document.getElementById(
       "worklogInput",
     ) as HTMLInputElement;
-    const weeklyInput = document.getElementById(
-      "weeklyInput",
-    ) as HTMLInputElement;
-    const uploadForm = document.getElementById("uploadForm") as HTMLFormElement;
-    const generateButton = document.getElementById(
-      "generateButton",
+    const processButton = document.getElementById(
+      "processButton",
     ) as HTMLButtonElement;
-    const downloadButton = document.getElementById(
-      "downloadButton",
+    const downloadExcelButton = document.getElementById(
+      "downloadExcelButton",
     ) as HTMLButtonElement;
+    const exportSection = document.getElementById(
+      "exportSection",
+    ) as HTMLFieldSetElement;
+    const logOutput = document.getElementById("logOutput") as HTMLDivElement;
 
-    setInputFiles(templateInput, [makeTemplateFileMock()]);
+    expect(exportSection.hidden).toBe(true);
+
     setInputFiles(worklogInput, [makeWorklogFileMock()]);
+    worklogInput.dispatchEvent(new Event("change", { bubbles: true }));
+    processButton.click();
 
-    uploadForm.dispatchEvent(
-      new Event("submit", { bubbles: true, cancelable: true }),
+    await waitUntil(() => !downloadExcelButton.disabled);
+    expect(exportSection.hidden).toBe(false);
+    expect(logOutput.hidden).toBe(false);
+    expect(logOutput.textContent).toContain("Processing finished");
+  });
+
+  it("enables Download DOCX after processing and exports after template picker change", async () => {
+    await import("../src/main");
+
+    const worklogInput = document.getElementById(
+      "worklogInput",
+    ) as HTMLInputElement;
+    const templatePickerInput = document.getElementById(
+      "templatePickerInput",
+    ) as HTMLInputElement;
+    const processButton = document.getElementById(
+      "processButton",
+    ) as HTMLButtonElement;
+    const downloadDocxButton = document.getElementById(
+      "downloadDocxButton",
+    ) as HTMLButtonElement;
+    const logOutput = document.getElementById("logOutput") as HTMLDivElement;
+
+    expect(downloadDocxButton.disabled).toBe(true);
+
+    setInputFiles(worklogInput, [makeWorklogFileMock()]);
+    worklogInput.dispatchEvent(new Event("change", { bubbles: true }));
+    processButton.click();
+    await waitUntil(() => !downloadDocxButton.disabled);
+    expect(downloadDocxButton.disabled).toBe(false);
+
+    downloadDocxButton.click();
+    setInputFiles(templatePickerInput, [makeTemplateFileMock()]);
+    templatePickerInput.dispatchEvent(new Event("change", { bubbles: true }));
+    await waitUntil(() =>
+      Boolean(logOutput.textContent?.includes("DOCX downloaded.")),
     );
-    await waitUntil(() => generateButton.hidden && !downloadButton.hidden);
+  });
 
-    expect(generateButton.hidden).toBe(true);
-    expect(downloadButton.hidden).toBe(false);
+  it("legend checkbox is enabled only when work areas file exists", async () => {
+    await import("../src/main");
 
-    weeklyInput.checked = true;
-    weeklyInput.dispatchEvent(new Event("change", { bubbles: true }));
+    const areasInput = document.getElementById(
+      "areasInput",
+    ) as HTMLInputElement;
+    const legendInput = document.getElementById(
+      "legendInput",
+    ) as HTMLInputElement;
 
-    expect(generateButton.hidden).toBe(false);
-    expect(downloadButton.hidden).toBe(true);
-    expect(downloadButton.disabled).toBe(true);
+    expect(legendInput.disabled).toBe(true);
+
+    setInputFiles(areasInput, [makeAreasFileMock()]);
+    areasInput.dispatchEvent(new Event("change", { bubbles: true }));
+    expect(legendInput.disabled).toBe(false);
+
+    legendInput.checked = true;
+    setInputFiles(areasInput, []);
+    areasInput.dispatchEvent(new Event("change", { bubbles: true }));
+    expect(legendInput.disabled).toBe(true);
+    expect(legendInput.checked).toBe(false);
+  });
+
+  it("shows selected file names in custom labels", async () => {
+    await import("../src/main");
+
+    const worklogInput = document.getElementById(
+      "worklogInput",
+    ) as HTMLInputElement;
+    const areasInput = document.getElementById(
+      "areasInput",
+    ) as HTMLInputElement;
+
+    const worklogName = document.getElementById(
+      "worklogFileName",
+    ) as HTMLSpanElement;
+    const areasName = document.getElementById(
+      "areasFileName",
+    ) as HTMLSpanElement;
+
+    setInputFiles(worklogInput, [makeWorklogFileMock()]);
+    worklogInput.dispatchEvent(new Event("change", { bubbles: true }));
+    setInputFiles(areasInput, [makeAreasFileMock()]);
+    areasInput.dispatchEvent(new Event("change", { bubbles: true }));
+    expect(worklogName.textContent).toBe("worklog.csv");
+    expect(areasName.textContent).toBe("work_areas.csv");
+  });
+
+  it("renders missing work-area references as warning log lines", async () => {
+    await import("../src/main");
+
+    const worklogInput = document.getElementById(
+      "worklogInput",
+    ) as HTMLInputElement;
+    const areasInput = document.getElementById(
+      "areasInput",
+    ) as HTMLInputElement;
+    const processButton = document.getElementById(
+      "processButton",
+    ) as HTMLButtonElement;
+    const logOutput = document.getElementById("logOutput") as HTMLDivElement;
+
+    setInputFiles(worklogInput, [makeWorklogFileMock()]);
+    worklogInput.dispatchEvent(new Event("change", { bubbles: true }));
+    setInputFiles(areasInput, [makeAreasFileMock()]);
+    areasInput.dispatchEvent(new Event("change", { bubbles: true }));
+    processButton.click();
+
+    await waitUntil(() =>
+      Boolean(logOutput.querySelector(".log-line-warn")?.textContent),
+    );
+
+    const warnLine = logOutput.querySelector(".log-line-warn");
+    expect(warnLine?.textContent).toContain("no matching work area key");
   });
 });
