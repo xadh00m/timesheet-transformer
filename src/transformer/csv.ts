@@ -54,7 +54,13 @@ function parseWorklogDate(dateField: unknown): Date | null {
   if (!raw) return null;
   if (raw.toLowerCase().includes(" to ")) return null;
   const datePart = raw.split(/\s+at\s+/i)[0]?.trim() ?? "";
-  const knownFormats = ["DD/MM/YY", "DD/MM/YYYY", "YYYY-MM-DD"];
+  const knownFormats = [
+    "DD/MM/YY",
+    "DD/MM/YYYY",
+    "DD.MM.YY",
+    "DD.MM.YYYY",
+    "YYYY-MM-DD",
+  ];
   const parsed = dayjs(datePart, knownFormats, true).hour(12);
   if (parsed.isValid()) return parsed.toDate();
   const parsedLoose = dayjs(datePart);

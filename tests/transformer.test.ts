@@ -115,6 +115,17 @@ Test User B,task week6 b,TEST-1,1h,04/02/26 at 08:00`;
       "Test User B",
     ]);
   });
+
+  it("parses dot-separated dates with decimal-comma hours", () => {
+    const csv = `User,Worklog,Key,Logged,Date
+Andrii Hrohul,Dashboard work,SZ-40,"8,00",25.02.2026`;
+
+    const rows = readWorklogRowsFromCsv(csv, noopLog);
+
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.hours).toBe(8);
+    expect(rows[0]?.dateKey).toBe("2026-02-25");
+  });
 });
 
 describe("transformer DOCX table rendering", () => {
