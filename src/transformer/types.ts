@@ -1,4 +1,8 @@
-export type WorkAreaEntry = { name: string; alias: string; rate?: number | null };
+export type WorkAreaEntry = {
+  name: string;
+  alias: string;
+  rate?: number | null;
+};
 export type WorkAreasByKey = Map<string, WorkAreaEntry>;
 
 export type WorklogRow = {

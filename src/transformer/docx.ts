@@ -415,7 +415,9 @@ function resolveDominantMonthYear(worklogRows: WorklogRow[]): string {
 
   for (const row of worklogRows) {
     const date =
-      row.dateValue instanceof Date ? dayjs(row.dateValue) : dayjs(row.dateSort);
+      row.dateValue instanceof Date
+        ? dayjs(row.dateValue)
+        : dayjs(row.dateSort);
     if (!date.isValid()) continue;
     const key = date.format("MM/YYYY");
     const sort = row.dateSort;

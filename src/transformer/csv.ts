@@ -52,13 +52,16 @@ function parseLoggedToHours(logged: unknown): number | null {
 function parseWorklogDate(dateField: unknown): Date | null {
   const raw = String(dateField ?? "").trim();
   if (!raw) return null;
-  if (raw.toLowerCase().includes(" to ")) return null;
-  const datePart = raw.split(/\s+at\s+/i)[0]?.trim() ?? "";
+  const lower = raw.toLowerCase();
+  if (lower.includes(" to ") || lower.includes(" bis ")) return null;
+
+  const datePart = raw.split(/\s+(?:at|um)\s+/i)[0]?.trim() ?? "";
   const knownFormats = [
     "DD/MM/YY",
     "DD/MM/YYYY",
     "DD.MM.YY",
     "DD.MM.YYYY",
+    "YYYY/MM/DD",
     "YYYY-MM-DD",
   ];
   const parsed = dayjs(datePart, knownFormats, true).hour(12);

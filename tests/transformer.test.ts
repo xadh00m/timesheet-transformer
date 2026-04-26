@@ -118,13 +118,40 @@ Test User B,task week6 b,TEST-1,1h,04/02/26 at 08:00`;
 
   it("parses dot-separated dates with decimal-comma hours", () => {
     const csv = `User,Worklog,Key,Logged,Date
-Andrii Hrohul,Dashboard work,SZ-40,"8,00",25.02.2026`;
+Person 1,Work item,SZ-40,"8,00",25.02.2026`;
 
     const rows = readWorklogRowsFromCsv(csv, noopLog);
 
     expect(rows).toHaveLength(1);
     expect(rows[0]?.hours).toBe(8);
     expect(rows[0]?.dateKey).toBe("2026-02-25");
+  });
+
+  it("parses German 'um' timestamps and YYYY/MM/DD dates", () => {
+    const csv = `User,Worklog,Key,Logged,Date
+Person 1,Work item,SZ-40,1h,2026/03/09 um 15:45
+Person 2,Work item,SZ-40,30m,09/03/26 um 09:30`;
+
+    const rows = readWorklogRowsFromCsv(csv, noopLog);
+
+    expect(rows).toHaveLength(2);
+    expect(rows.map((r) => r.dateKey)).toEqual(["2026-03-09", "2026-03-09"]);
+  });
+
+  it("processes mixed date format fixture without throwing", () => {
+    const csv = `User,Worklog,Key,Logged,Date
+Person 1,,,16h,09/03/26 to 31/03/26
+Person 1,Work item,PROJ-1,1h,09/03/26 at 14:00
+Person 1,Work item,PROJ-1,30m,13/03/26 at 09:30
+Person 2,,,40h,2026/03/09 bis 2026/03/31
+Person 2,Work item,PROJ-2,1h 15m,2026/03/09 um 15:45
+Person 2,Work item,PROJ-2,3h,2026/03/17 um 11:00
+Person 3,Work item,PROJ-3,8h,2026-03-31
+`;
+
+    const rows = readWorklogRowsFromCsv(csv, noopLog);
+
+    expect(rows.length).toBeGreaterThan(0);
   });
 });
 
@@ -157,12 +184,12 @@ Test User A,task a,TEST-1,1h,03/02/26 at 08:00`,
     expect(xml).toContain("09.03.2026");
     expect(xml).not.toContain("&lt;Datum&gt;");
     expect(xml).toContain("<w:b/>");
-    expect(xml).toContain("<w:color w:val=\"FF0000\"/>");
+    expect(xml).toContain('<w:color w:val="FF0000"/>');
 
     expect(xml).toContain("02/2026");
     expect(xml).not.toContain("&lt;Monat/Jahr&gt;");
     expect(xml).toContain("<w:i/>");
-    expect(xml).toContain("<w:u w:val=\"single\"/>");
+    expect(xml).toContain('<w:u w:val="single"/>');
     expect(xml).not.toContain("Bereich");
     expect(xml).not.toContain("Legende");
   });
@@ -191,12 +218,12 @@ Test User A,task a,TEST-1,1h,03/02/26 at 08:00`,
     expect(xml).toContain("09.03.2026");
     expect(xml).not.toContain("&lt;Datum&gt;");
     expect(xml).toContain("<w:b/>");
-    expect(xml).toContain("<w:color w:val=\"FF0000\"/>");
+    expect(xml).toContain('<w:color w:val="FF0000"/>');
 
     expect(xml).toContain("02/2026");
     expect(xml).not.toContain("&lt;Monat/Jahr&gt;");
     expect(xml).toContain("<w:i/>");
-    expect(xml).toContain("<w:u w:val=\"single\"/>");
+    expect(xml).toContain('<w:u w:val="single"/>');
     expect(xml).toContain("Bereich");
     expect(xml).toContain("Legende");
     expect(xml).toContain("TA");
